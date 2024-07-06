@@ -28,7 +28,7 @@ class StartPluginThread(QThread):
         self.result.emit(True)
 
 
-class pluginSettingWindow(QWidget):
+class PluginSettingWindow(QWidget):
     def __init__(self, parent=None) -> None:
         """plugin的设置界面"""
         super().__init__(parent)
@@ -37,16 +37,16 @@ class pluginSettingWindow(QWidget):
 
         # plugin的列表
         self.loader: Union[plugin.pluginLoader, None] = None
-        self.pluginItems: List[Dict[Any, plugin.pluginDataType]] = []
-        self.getpluginItems()
+        self.plugin_items: List[Dict[Any, plugin.plugin_dataType]] = []
+        self.getPluginItems()
         self._callback: Union[plugin.pluginCallableType, None] = None
         self.pluginThread: Union[QThread, None] = None
         self.startPluginThread: Union[StartPluginThread, None] = None
         
         # 左侧列表
         self.pluginList = QListWidget()
-        self.pluginList.itemClicked.connect(self.displaypluginDetails)
-        self.populatepluginList()
+        self.pluginList.itemClicked.connect(self.displayPluginDetails)
+        self.populatePluginList()
         layout.addWidget(self.pluginList, 20)  # 分配左侧20%的空间
         
         # 右侧详情显示区
@@ -58,47 +58,52 @@ class pluginSettingWindow(QWidget):
 
     def initEvent(self) -> None:
         """Init event"""
-        self.initAllplugin()
+        self.initAllPlugin()
 
-    def initAllplugin(self) -> None:
+    def initAllPlugin(self) -> None:
         """初始化所有plugin"""
         manager = plugin.pluginConfigManager()
-        for pluginItem in self.pluginItems:
-            for pluginName, pluginInfo in pluginItem.items():
-                static = pluginInfo.static
+        for plugin_item in self.plugin_items:
+            for plugin_name, plugin_info in plugin_item.items():
+                static = plugin_info.static
                 if static is not None and static == 'on':
-                    logger.info(f"setting将初始化plugin: {pluginName}。")
-                    self.onOrOffButton = QPushButton(pluginInfo.static)
-                    self.enableOrDisablepluginEvent(pluginName)
+                    logger.info(f"setting将初始化plugin: {plugin_name}。")
+                    self.onOrOffButton = QPushButton(plugin_info.static)
+                    self.enableOrDisablePluginEvent(plugin_name)
     
-    def getpluginItems(self):
-        """获取所有pluginItems"""
+    def getPluginItems(self):
+        """获取所有plugin_items"""
         manager = plugin.pluginConfigManager()
         result = manager.readDataBypluginName()
         if result:
-           self.pluginItems = result 
+           self.plugin_items = result 
+           logger.info(f"获取到的plugin_items: {self.plugin_items}")
     
-    def populatepluginList(self):
+    def populatePluginList(self):
         """填充plugin列表"""
-        for pluginItem in self.pluginItems:
-            for name in pluginItem.keys():
-                listItem = QListWidgetItem(name)
-                self.pluginList.addItem(listItem)
+        for plugin_item in self.plugin_items:
+            for name in plugin_item.keys():
+                list_item = QListWidgetItem(name)
+                self.pluginList.addItem(list_item)
 
-    def displaypluginDetails(self, item: QListWidgetItem):
+    def displayPluginDetails(self, item: QListWidgetItem):
         """显示选中plugin的详细信息"""
-        self.getpluginItems()   # 更新一下items内容
-        for pluginItem in self.pluginItems:
-            if item.text() not in pluginItem.keys():
-                break
-            self.setOnOrOffButtonEvent(text = item.text(), value = pluginItem[item.text()])
+        # self.getPluginItems()   # 更新一下items内容
+        logger.debug(f"显示选中plugin的详细信息: {item.text()}")
+        for plugin_item in self.plugin_items:
+            if item.text() not in plugin_item.keys():
+                logger.debug(f"plugin_item not exist: {plugin_item}")
+                continue
+            self.setOnOrOffButtonEvent(text = item.text(), value = plugin_item[item.text()])
     
     def setOnOrOffButtonEvent(self, text: str, value: plugin.pluginDataType) -> None:
         """设置打开或改变按钮的事件"""
         static = "启用" if value.static == "off" else "关闭"
-        self.startPluginThread = StartPluginThread(lambda: self.enableOrDisablepluginEvent(text))
+        self.startPluginThread = StartPluginThread(lambda: self.enableOrDisablePluginEvent(text))
         self.startPluginThread.result.connect(self.onOrOffButtonResultConnectEvent)
         self.updateDetails(value)
+        if hasattr(self, "onOrOffButton"):
+            self.onOrOffButton.deleteLater()
         self.onOrOffButton = QPushButton(static)
         self.onOrOffButton.clicked.connect(self.startPluginThread.start)
         self.detailsLayout.addWidget(self.onOrOffButton)
@@ -111,7 +116,7 @@ class pluginSettingWindow(QWidget):
         """
         message = QMessageBox()
         if not result:
-            logger.error(f"plugin: {self.loader.pluginName}, {self.onOrOffButton.text()}失败！")
+            logger.error(f"plugin: {self.loader.plugin_name}, {self.onOrOffButton.text()}失败！")
             message.setText("失败！")
             message.setWindowTitle("Fail")
             message.setWindowIconText("Start plugin fail")
@@ -122,18 +127,21 @@ class pluginSettingWindow(QWidget):
         message.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         message.exec()
 
-    def enableOrDisablepluginEvent(self, pluginName: str) -> None:
+    def enableOrDisablePluginEvent(self, plugin_name: str) -> None:
         """启用指定的plugin"""
         # 使用加载器加载plugin
-        self.loader = plugin.pluginLoader(pluginName)
+        self.loader = plugin.pluginLoader(plugin_name)
 
         # 关闭plugin
         if self.onOrOffButton.text() == "关闭":
             if not self._callback:
+                logger.warning(f"plugin: {plugin_name}没有停止！")
                 return None
             if self.loader.getStaitc() is False:
+                logger.warning(f"plugin: {plugin_name}未启用！")
                 return None
             result = self._callback.stop()
+
             if not result:
                 return None
             self.onOrOffButton.setText("启动")
@@ -152,16 +160,18 @@ class pluginSettingWindow(QWidget):
             self.onOrOffButton.setText("关闭")
             self.loader.save()
 
-    def updateDetails(self, pluginData: plugin.pluginDataType):
+    def updateDetails(self, plugin_data: plugin.pluginDataType):
         """更新右侧的详细信息显示"""
-        static = "启动" if pluginData.static == "on" else "关闭"
+        logger.debug(f"更新右侧的详细信息显示: {plugin_data}")
+
+        static = "启动" if plugin_data.static == "on" else "关闭"
         address = "\n\t".join(
-            [key+':'+value for key, value in pluginData.address.items() if value != "null"]
+            [key+':'+value for key, value in plugin_data.address.items() if value != "null"]
         )
         self.detailsLabel.setText(
-            f"作者: {pluginData.author}\n" +
-            f"版本: {pluginData.version}\n"+
-            f"简介: {pluginData.description}\n" +
+            f"作者: {plugin_data.author}\n" +
+            f"版本: {plugin_data.version}\n"+
+            f"简介: {plugin_data.description}\n" +
             f"当前状态: {static}\n" + 
             f"开源地址: \n\t{address}" 
         )
@@ -179,6 +189,6 @@ class SettingsWidget(QWidget):
         layout.addWidget(self.tabWidget)
         
         # 选项菜单
-        self.thePluginSettingWindow = pluginSettingWindow()
+        self.thePluginSettingWindow = PluginSettingWindow()
         self.tabWidget.addTab(QWidget(), "基础")
         self.tabWidget.addTab(self.thePluginSettingWindow, "plugin")

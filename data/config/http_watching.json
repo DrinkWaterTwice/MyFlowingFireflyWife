@@ -1,0 +1,1 @@
+{"http_address": {"1": "http://localhost:8070/query", "5": "http://localhost:8074/query", "2": "http://localhost:8071/query"}, "time_per_request": 10}

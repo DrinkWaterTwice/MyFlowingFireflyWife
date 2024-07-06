@@ -9,5 +9,16 @@
             "other": "null"
         },
         "static": "off"
+    },
+    "HttpServiceWatching": {
+        "author": "DrinkWaterTwice",
+        "version": "0.1-beta",
+        "description": "监控HTTP请求并触发相应语音。",
+        "address": {
+            "github": "null",
+            "gitee": "null",
+            "other": "null"
+        },
+        "static": "on"
     }
 }

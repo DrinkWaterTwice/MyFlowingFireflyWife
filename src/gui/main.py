@@ -21,6 +21,7 @@ from src.events.RoleProperties import Firefly as FireflyRole
 
 INDEX_BG_IMAGE = "data/assets/images/firefly/default/bg.png"
 
+window = None
 
 class MainWindow(QMainWindow):
     start_timer_signal = Signal()
@@ -116,11 +117,20 @@ class MainWindow(QMainWindow):
         sleepAction.triggered.connect(self.actionEventQThread.sleepEvent)
         self.menu.addAction(sleepAction)
 
+        # 隐藏窗口
+        hide_action = QAction("隐藏", self)
+        hide_action.triggered.connect(self.hide)
+        self.menu.addAction(hide_action)
+
+
         # 退出程序
         exit_action = QAction("退出", self)
         exit_action.triggered.connect(self.CustomCloseEvent)
         self.menu.addAction(exit_action)
         self.menu.hide()
+
+
+
 
     def mouseMoveEvent(self, event) -> None:
         """
@@ -333,3 +343,11 @@ class MainWindow(QMainWindow):
         """停止执行动作的定时器"""
         if hasattr(self, 'action_timer'):
             self.action_timer.stop()
+
+
+def main(app: QApplication) -> None:
+    global window
+    window = MainWindow(app)
+    window.show()
+    app.exec()
+    return window
